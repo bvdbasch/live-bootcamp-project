@@ -1,0 +1,3 @@
+**/target
+app-service/app-service.log
+auth-service/auth-service.log

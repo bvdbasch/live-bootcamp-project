@@ -1,0 +1,102 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/LucasPickering/slumber/refs/tags/v4.3.1/schemas/collection.json
+name: This is an API for an authentication service using JWT and optional email 2FA.
+profiles:
+  localhost:
+    name: local
+    default: true
+    data:
+      host: localhost:3000
+      url: "http://{{ host }}"
+
+# These should all just return 200 for now
+requests:
+  web:
+    # This route serves the login/signup UI
+    name: "Login/Sign-up UI"
+    requests:
+      ui:
+        method: GET
+        url: "{{ url }}/"
+  registration:
+    name: "Register a new user"
+    requests:
+      # Register a new user
+      signup:
+        method: POST
+        url: "{{ url }}/signup"
+        # $ slumber request register -v
+        # > POST http://localhost:3000/signup HTTP/1.1
+
+        # < 200 OK
+        # < content-length: 0
+        # < date: Mon, 23 Feb 2026 14:37:55 GMT
+        #
+        #   "201": "User created successfully!"
+        #   "400": "Invalid input"
+        #   "401": "Authentication failed"
+        #   "409": "Email already exists"
+        #   "422": "Unprocessable content"
+        #   "500": "Unexpected error"
+  authentication:
+    name: "Authenticate user and return JWT"
+    requests:
+      login:
+        # Authenticate user and return JWT
+        method: POST
+        url: "{{ url }}/login"
+        # $ slumber request login -v
+        # > POST http://localhost:3000/login HTTP/1.1
+
+        # < 200 OK
+        # < content-length: 0
+        # < date: Mon, 23 Feb 2026 14:37:55 GMT
+        #   "200": "Login successful"
+        #   "206": "Login requires 2FA"
+        #   "400": "Invalid input"
+        #   "401": "Authentication failed"
+        #   "422": "Unprocessable content"
+        #   "500": "Unexpected error"
+      verify-2fa:
+        # Verify 2FA token
+        method: POST
+        url: "{{ url }}/verify-2fa"
+        # $ slumber request verify-2fa -v
+        # > POST http://localhost:3000/login HTTP/1.1
+
+        # < 200 OK
+        # < content-length: 0
+        # < date: Mon, 23 Feb 2026 14:37:55 GMT
+        #   "200": "Login successful"
+        #   "400": "Invalid input"
+        #   "401": "Authentication failed"
+        #   "422": "Unprocessable content"
+        #   "500": "Unexpected error"
+      verify-token:
+        # Verifies if a JWT is valid
+        method: POST
+        url: "{{ url }}/verify-token"
+        # $ slumber request verify-token -v
+        # > POST http://localhost:3000/verify-token HTTP/1.1
+
+        # < 200 OK
+        # < content-length: 0
+        # < date: Mon, 23 Feb 2026 14:37:55 GMT
+        #   "200": "Token is valid"
+        #   "401": "JWT is not valid"
+        #   "422": "Unprocessable content"
+        #   "500": "Unexpected error"
+      logout:
+        # Logout user
+        method: POST
+        url: "{{ url }}/logout"
+        # $ slumber request logout -v
+        # > POST http://localhost:3000/logout HTTP/1.1
+
+        # < 200 OK
+        # < content-length: 0
+        # < date: Mon, 23 Feb 2026 14:37:55 GMT
+        #   "200": "Logout successful"
+        #   "400": "Invalid input"
+        #   "401": "JWT is not valid"
+        #   "500": "Unexpected error"

@@ -3,6 +3,12 @@
 version: "3"
 output: interleaved
 
+vars:
+  APP_SERVICE_PID:
+    sh: lsof -tiTCP:8000 -sTCP:LISTEN || true # lsof retrieves the process id of the process currently occupying port 8000
+  AUTH_SERVICE_PID:
+    sh: lsof -tiTCP:3000 -sTCP:LISTEN || true # lsof retrieves the process id of the process currently occupying port 3000
+
 tasks:
   default:
     desc: List all the available taskfiles and print a small description
@@ -48,17 +54,24 @@ tasks:
     cmds:
       - cargo build
 
-  # Start services:
+  # Start/stop services:
   # - local tasks run the services directly with cargo run
   # - docker tasks start the Docker containers with docker compose
   run-docker:
-    desc: Start the Docker containers for the auth service and the app service with docker-compose
+    desc: Start the Docker containers for the auth service and the app service (uses docker-compose)
     aliases:
-      - run-docker
+      - up
     deps:
       - build-docker-images
     cmds:
       - docker-compose up
+
+  stop-docker:
+    desc: Stop the Docker containers for the auth service and the app service (uses docker-compose)
+    aliases:
+      - down
+    cmds:
+      - docker-compose down
 
   run-local:
     desc: Run the auth service and the app service locally using cargo watch
@@ -68,20 +81,179 @@ tasks:
       - run-app-service
       - run-auth-service
 
+  stop-local:
+    desc: Stops the non docker version of the auth service and the app service (uses kill)
+    aliases:
+      - stop
+    deps:
+      - stop-app-service
+      - stop-auth-service
+
   run-app-service:
-    desc: Run the app service locally using cargo watch
+    desc: Run the app service locally on port 8000 using cargo watch
     dir: "{{.ROOT_DIR}}/app-service"
     aliases:
       - run-app
     cmds:
-      - cargo watch -q -c -w src/ -w assets/ -w templates/ -x run
       - echo "Starting app service on http://localhost:8000"
+      - cargo watch -q -c -w src/ -w assets/ -w templates/ -x run > {{.ROOT_DIR}}/app-service/app-service.log  2>&1 &
+      - echo "Success! App service is now running on http://localhost:8000"
+
+  stop-app-service:
+    desc: Stops the non docker version of the app service
+    platforms: [darwin, linux]
+    status:
+      - test -z "{{.APP_SERVICE_PID}}" # Will only issue the kill command if the app service is currently running
+    aliases:
+      - stop-app
+    cmds:
+      - echo "Detected that the app service is found running on port 8000... Proceeding to stop the app service"
+      - /bin/kill {{.APP_SERVICE_PID}}
+      - echo "Success! App service is now stopped."
 
   run-auth-service:
-    desc: Run the auth service locally using cargo watch
+    desc: Run the auth service locally on port 3000 using cargo watch
     dir: "{{.ROOT_DIR}}/auth-service"
     aliases:
       - run-auth
     cmds:
       - echo "Starting auth service on http://localhost:3000"
-      - cargo watch -q -c -w src/ -w assets/ -x run
+      - cargo watch -q -c -w src/ -w assets/ -x run > {{.ROOT_DIR}}/auth-service/auth-service.log  2>&1 &
+      - echo "Success! Auth service is now running on http://localhost:3000"
+
+  stop-auth-service:
+    desc: Stops the non docker version of the auth service
+    platforms: [darwin, linux]
+    status:
+      - test -z "{{.AUTH_SERVICE_PID}}" # Will only issue the kill command if the auth service is currently running
+    aliases:
+      - stop-auth
+    cmds:
+      - echo "Detected that the auth service is found running on port 3000... Proceeding to stop the auth service"
+      - /bin/kill {{.AUTH_SERVICE_PID}}
+      - echo "Success! Auth service is now stopped."
+
+  # Test services:
+  # - local tasks test the services directly with cargo tests
+  test-local:
+    desc: Test the auth service and the app service locally using cargo test
+    aliases:
+      - test
+    cmds:
+      - task: test-app-service
+      - task: test-auth-service
+    deps:
+      - build-local-app-service
+      - build-local-auth-service
+
+  test-app-service:
+    desc: Test the app service locally using cargo test
+    dir: "{{.ROOT_DIR}}/app-service"
+    aliases:
+      - test-app
+    cmds:
+      - cargo test
+
+  test-auth-service:
+    desc: Test the auth service locally using cargo test
+    dir: "{{.ROOT_DIR}}/auth-service"
+    aliases:
+      - test-auth
+    cmds:
+      - cargo test
+
+  # Test auth service api endpoints
+  # These tasks leverage slumber to call the API endpoints programatically | see: https://github.com/LucasPickering/slumber
+  test-api-endpoints:
+    desc: Test the API endpoints of the auth service locally using
+    dir: "{{.ROOT_DIR}}/auth-service"
+    aliases:
+      - api
+      - test-api
+    cmds:
+      - task: api-test-web-ui
+      - task: api-test-signup
+      - task: api-test-login
+      - task: api-test-verify-2fa
+      - task: api-test-verify-token
+      - task: api-test-logout
+    status:
+      - test -z "{{.AUTH_SERVICE_PID}}" # Test will only run if the auth service is running
+
+  api-test-web-ui:
+    desc: "Test retrieving the signup/login page"
+    platforms: [darwin, linux]
+    status:
+      - test -z "{{.AUTH_SERVICE_PID}}" # Test will only run if the auth service is running
+    silent: true
+    aliases:
+      - test-ui
+    cmds:
+      - echo "API test starting for the service UI..."
+      - |
+        sh -c 'if slumber request ui -v 2>&1 | grep -q " 200"; then echo "PASS: ui returned 200"; else echo "FAIL: ui did not return 200"; exit 1; fi'
+
+  api-test-signup:
+    desc: "Test all the possible methods of the /signup endpoint"
+    platforms: [darwin, linux]
+    status:
+      - test -z "{{.AUTH_SERVICE_PID}}" # Test will only run if the auth service is running
+    silent: true
+    aliases:
+      - test-signup
+    cmds:
+      - echo "API test starting for /signup endpoint..."
+      - |
+        sh -c 'if slumber request signup -v 2>&1 | grep -q " 200"; then echo "PASS: signup returned 200"; else echo "FAIL: signup did not return 200"; exit 1; fi'
+
+  api-test-login:
+    desc: "Test all the possible methods of the /login endpoint"
+    platforms: [darwin, linux]
+    status:
+      - test -z "{{.AUTH_SERVICE_PID}}" # Test will only run if the auth service is running
+    silent: true
+    aliases:
+      - test-signup
+    cmds:
+      - echo "API test starting for /login endpoint..."
+      - |
+        sh -c 'if slumber request login -v 2>&1 | grep -q " 200"; then echo "PASS: login returned 200"; else echo "FAIL: login did not return 200"; exit 1; fi'
+
+  api-test-verify-2fa:
+    desc: "Test all the possible methods of the /verify-2fa endpoint"
+    platforms: [darwin, linux]
+    status:
+      - test -z "{{.AUTH_SERVICE_PID}}" # Test will only run if the auth service is running
+    silent: true
+    aliases:
+      - test-signup
+    cmds:
+      - echo "API test starting for /verify-2fa endpoint..."
+      - |
+        sh -c 'if slumber request verify-2fa -v 2>&1 | grep -q " 200"; then echo "PASS: verify-2fa returned 200"; else echo "FAIL: verify-2fa did not return 200"; exit 1; fi'
+
+  api-test-verify-token:
+    desc: "Test all the possible methods of the /verify-token endpoint"
+    platforms: [darwin, linux]
+    status:
+      - test -z "{{.AUTH_SERVICE_PID}}" # Test will only run if the auth service is running
+    silent: true
+    aliases:
+      - test-signup
+    cmds:
+      - echo "API test starting for /verify-token endpoint..."
+      - |
+        sh -c 'if slumber request verify-token -v 2>&1 | grep -q " 200"; then echo "PASS: verify-token returned 200"; else echo "FAIL: verify-token did not return 200"; exit 1; fi'
+
+  api-test-logout:
+    desc: "Test all the possible methods of the /logout endpoint"
+    platforms: [darwin, linux]
+    status:
+      - test -z "{{.AUTH_SERVICE_PID}}" # Test will only run if the auth service is running
+    silent: true
+    aliases:
+      - test-signup
+    cmds:
+      - echo "API test starting for /logout endpoint..."
+      - |
+        sh -c 'if slumber request logout -v 2>&1 | grep -q " 200"; then echo "PASS: logout returned 200"; else echo "FAIL: logout did not return 200"; exit 1; fi'
