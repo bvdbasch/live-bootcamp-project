@@ -2,14 +2,43 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/LucasPickering/slumber/refs/tags/v4.3.1/schemas/collection.json
 name: This is an API for an authentication service using JWT and optional email 2FA.
 profiles:
-  localhost:
+  default:
     name: local
     default: true
     data:
       host: localhost:3000
       url: "http://{{ host }}"
+      email: "{{ prompt(message='Enter user email') }}"
+      password: "{{ prompt(message='Enter desired password') }}"
+      requires2FA: "{{ prompt(message='Requires 2FA?') }}"
+      signup_body: |
+        {
+          "email": "{{ email }}",
+          "password": "{{ password }}",
+          "requires2FA": {{ requires2FA | json_parse() }}
+        }
+  signup-2xx:
+    name: signup 2xx
+    data:
+      host: localhost:3000
+      url: "http://{{ host }}"
+      signup_body: |
+        {
+          "email": "test@example.com",
+          "password": "secret",
+          "requires2FA": false
+        }
+  signup-4xx:
+    name: signup 4xx
+    data:
+      host: localhost:3000
+      url: "http://{{ host }}"
+      signup_body: |
+        {
+          "password": "secret",
+          "requires2FA": false
+        }
 
-# These should all just return 200 for now
 requests:
   web:
     # This route serves the login/signup UI
@@ -25,13 +54,9 @@ requests:
       signup:
         method: POST
         url: "{{ url }}/signup"
-        # $ slumber request register -v
-        # > POST http://localhost:3000/signup HTTP/1.1
-
-        # < 200 OK
-        # < content-length: 0
-        # < date: Mon, 23 Feb 2026 14:37:55 GMT
-        #
+        body:
+          type: json
+          data: "{{ signup_body | json_parse() }}"
         #   "201": "User created successfully!"
         #   "400": "Invalid input"
         #   "401": "Authentication failed"
@@ -45,12 +70,6 @@ requests:
         # Authenticate user and return JWT
         method: POST
         url: "{{ url }}/login"
-        # $ slumber request login -v
-        # > POST http://localhost:3000/login HTTP/1.1
-
-        # < 200 OK
-        # < content-length: 0
-        # < date: Mon, 23 Feb 2026 14:37:55 GMT
         #   "200": "Login successful"
         #   "206": "Login requires 2FA"
         #   "400": "Invalid input"
@@ -61,12 +80,6 @@ requests:
         # Verify 2FA token
         method: POST
         url: "{{ url }}/verify-2fa"
-        # $ slumber request verify-2fa -v
-        # > POST http://localhost:3000/login HTTP/1.1
-
-        # < 200 OK
-        # < content-length: 0
-        # < date: Mon, 23 Feb 2026 14:37:55 GMT
         #   "200": "Login successful"
         #   "400": "Invalid input"
         #   "401": "Authentication failed"
@@ -76,12 +89,6 @@ requests:
         # Verifies if a JWT is valid
         method: POST
         url: "{{ url }}/verify-token"
-        # $ slumber request verify-token -v
-        # > POST http://localhost:3000/verify-token HTTP/1.1
-
-        # < 200 OK
-        # < content-length: 0
-        # < date: Mon, 23 Feb 2026 14:37:55 GMT
         #   "200": "Token is valid"
         #   "401": "JWT is not valid"
         #   "422": "Unprocessable content"
@@ -90,12 +97,6 @@ requests:
         # Logout user
         method: POST
         url: "{{ url }}/logout"
-        # $ slumber request logout -v
-        # > POST http://localhost:3000/logout HTTP/1.1
-
-        # < 200 OK
-        # < content-length: 0
-        # < date: Mon, 23 Feb 2026 14:37:55 GMT
         #   "200": "Logout successful"
         #   "400": "Invalid input"
         #   "401": "JWT is not valid"
