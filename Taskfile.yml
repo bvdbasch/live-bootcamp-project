@@ -94,6 +94,8 @@ tasks:
     dir: "{{.ROOT_DIR}}/app-service"
     aliases:
       - run-app
+    deps:
+      - build-local-app-service
     cmds:
       - echo "Starting app service on http://localhost:8000"
       - cargo watch -q -c -w src/ -w assets/ -w templates/ -x run > {{.ROOT_DIR}}/app-service/app-service.log  2>&1 &
@@ -116,6 +118,8 @@ tasks:
     dir: "{{.ROOT_DIR}}/auth-service"
     aliases:
       - run-auth
+    deps:
+      - build-local-auth-service
     cmds:
       - echo "Starting auth service on http://localhost:3000"
       - cargo watch -q -c -w src/ -w assets/ -x run > {{.ROOT_DIR}}/auth-service/auth-service.log  2>&1 &
@@ -202,9 +206,13 @@ tasks:
     aliases:
       - test-signup
     cmds:
-      - echo "API test starting for /signup endpoint..."
+      - echo "API tests starting for /signup endpoint..."
+      - echo "Testing /signup endpoint with valid data (expecting 200)..."
       - |
-        sh -c 'if slumber request signup -v 2>&1 | grep -q " 200"; then echo "PASS: signup returned 200"; else echo "FAIL: signup did not return 200"; exit 1; fi'
+        sh -c 'if slumber request signup -v --profile signup-2xx 2>&1 | grep -q " 200"; then echo "PASS: signup returned 200"; else echo "FAIL: signup did not return 200"; exit 1; fi'
+      - echo "Testing /signup endpoint with invalid data (expecting 422)..."
+      - |
+        sh -c 'if slumber request signup -v --profile signup-4xx 2>&1 | grep -q " 422"; then echo "PASS: signup returned 422"; else echo "FAIL: signup did not return 422"; exit 1; fi'
 
   api-test-login:
     desc: "Test all the possible methods of the /login endpoint"
