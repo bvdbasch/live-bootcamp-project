@@ -1,0 +1,87 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+output: interleaved
+
+tasks:
+  default:
+    desc: List all the available taskfiles and print a small description
+    cmds:
+      - echo 'Taskfile detected in {{.ROOT_DIR}}'
+      - echo 'Invoke any of the tasks below by running task <task_name> from {{.ROOT_DIR}} or any of its subdirectories!'
+      - task --list-all
+    silent: true
+
+  # Builds:
+  # - local tasks build the project directly with cargo build
+  # - docker tasks build the Docker containers with docker compose
+  build-docker-images:
+    desc: Build the docker images for the auth service and the app service with docker-compose (will not install docker-compose)
+    aliases:
+      - d
+    cmds:
+      - docker compose build
+
+  build-local:
+    desc: Build both the auth service and the app service locally using cargo (installs cargo watch)
+    aliases:
+      - b
+      - build
+    cmds:
+      - cargo install cargo-watch
+      - task: build-local-app-service
+      - task: build-local-auth-service
+
+  build-local-app-service:
+    desc: Build the app service locally using cargo (will not install cargo watch)
+    dir: "{{.ROOT_DIR}}/app-service"
+    aliases:
+      - build-app
+    cmds:
+      - cargo build
+
+  build-local-auth-service:
+    desc: Build the auth service locally using cargo (will not  install cargo watch))
+    dir: "{{.ROOT_DIR}}/auth-service"
+    aliases:
+      - build-auth
+    cmds:
+      - cargo build
+
+  # Start services:
+  # - local tasks run the services directly with cargo run
+  # - docker tasks start the Docker containers with docker compose
+  run-docker:
+    desc: Start the Docker containers for the auth service and the app service with docker-compose
+    aliases:
+      - run-docker
+    deps:
+      - build-docker-images
+    cmds:
+      - docker-compose up
+
+  run-local:
+    desc: Run the auth service and the app service locally using cargo watch
+    aliases:
+      - run
+    deps:
+      - run-app-service
+      - run-auth-service
+
+  run-app-service:
+    desc: Run the app service locally using cargo watch
+    dir: "{{.ROOT_DIR}}/app-service"
+    aliases:
+      - run-app
+    cmds:
+      - cargo watch -q -c -w src/ -w assets/ -w templates/ -x run
+      - echo "Starting app service on http://localhost:8000"
+
+  run-auth-service:
+    desc: Run the auth service locally using cargo watch
+    dir: "{{.ROOT_DIR}}/auth-service"
+    aliases:
+      - run-auth
+    cmds:
+      - echo "Starting auth service on http://localhost:3000"
+      - cargo watch -q -c -w src/ -w assets/ -x run
