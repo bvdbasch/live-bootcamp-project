@@ -2,9 +2,16 @@ use std::error::Error;
 
 use axum::{routing::post, serve::Serve, Router};
 use tokio::net::TcpListener;
-use tower_http::services::{ServeDir, ServeFile};
+use tower_http::services::ServeDir;
+
+pub mod domain;
+pub mod services;
+
+pub mod app_state;
+use app_state::AppState;
 
 pub mod routes;
+use crate::routes::*;
 
 pub struct Application {
     server: Serve<TcpListener, Router, Router>,
@@ -12,16 +19,15 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(address: &str) -> Result<Application, Box<dyn Error>> {
-        let asset_dir =
-            ServeDir::new("assets").not_found_service(ServeFile::new("assets/index.html"));
+    pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
         let router = Router::new()
-            .fallback_service(asset_dir)
-            .route("/signup", post(routes::signup))
-            .route("/login", post(routes::login))
-            .route("/logout", post(routes::logout))
-            .route("/verify-2fa", post(routes::verify2fa))
-            .route("/verify-token", post(routes::verifytoken));
+            .route("/signup", post(signup))
+            .route("/login", post(login))
+            .route("/logout", post(logout))
+            .route("/verify-2fa", post(verify_2fa))
+            .route("/verify-token", post(verify_token))
+            .fallback_service(ServeDir::new("assets"))
+            .with_state(app_state);
 
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
