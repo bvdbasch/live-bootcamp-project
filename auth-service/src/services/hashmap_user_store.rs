@@ -1,23 +1,4 @@
-// UserStoreError is an error enum we'll use to represent all the possible ways our data store may fail.
-//  - It derives the Debug and PartailEq traits so that we can compare different instances, which is useful for testing.
-
-// We are only implementing basic error handling in this sprint. More robust and idiomatic error handling will be the focus of a future sprint.
-
-// HashmapUserStore is our user store implementation.
-//  - It derives the Default trait so we can easily create new instances that contain an empty hashmap.
-
-// We are not hashing passwords. This will be implemented in a later sprint!
-
-// TODO:
-// ✅ 1. Create a new struct called `HashmapUserStore` containing: users (stores a HashMap of email Strings mapped to User objects).
-// ✅ 2. Derive the `Default` trait for `HashmapUserStore`.
-// ✅ 3. Implement a public method called `get_user` (takes &self,  and &str [email] as arguments) -> returns Result<User, UserStoreError [UserStoreError::UserNotFound]>
-// ✅ 4. Implement a public method called `validate_user` (takes &self, &str [email], &str [password]) -> returs Result<(), UserStoreError> [`UserStoreError::UserNotFound`, UserStoreError::InvalidCredentials]
-// ✅ 5. Implement a pubic method called `add_user` (takes &mut self, User [a user]) -> returns Result<(), UserStoreError> [`UserStoreError::UserAlreadyExists`]
-// ✅ 6. Add unit tests for your `HashmapUserStore` implementation
-// ✅ 7. update the User struct to derive a few traits for the unit tests to pass.
-
-use crate::domain::User;
+use crate::domain::{User, UserStore, UserStoreError};
 use std::collections::HashMap;
 
 #[derive(Default, Debug)]
@@ -25,16 +6,9 @@ pub struct HashmapUserStore {
     pub users: HashMap<String, User>,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum UserStoreError {
-    UserAlreadyExists,
-    UserNotFound,
-    InvalidCredentials,
-    UnexpectedError,
-}
-
-impl HashmapUserStore {
-    pub fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+#[async_trait::async_trait]
+impl UserStore for HashmapUserStore {
+    async fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
         match self.users.get(email) {
             Some(matched_user) => Ok(User {
                 email: matched_user.email.clone(),
@@ -45,8 +19,8 @@ impl HashmapUserStore {
         }
     }
 
-    pub fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
-        match self.get_user(&user.email).is_ok() {
+    async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
+        match self.get_user(&user.email).await.is_ok() {
             true => return Err(UserStoreError::UserAlreadyExists),
             false => {
                 self.users.entry(user.email.clone()).or_insert(user);
@@ -55,8 +29,8 @@ impl HashmapUserStore {
         }
     }
 
-    pub fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
-        match self.get_user(email) {
+    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+        match self.get_user(email).await {
             Ok(returned_user) => match returned_user.password == password {
                 true => return Ok(()),
                 false => return Err(UserStoreError::InvalidCredentials),
@@ -85,7 +59,10 @@ mod tests {
             users: user_hashmap,
         };
 
-        assert_eq!(test_user, user_store.get_user(&test_user.email).unwrap());
+        assert_eq!(
+            test_user,
+            user_store.get_user(&test_user.email).await.unwrap()
+        );
     }
 
     #[tokio::test]
@@ -102,7 +79,10 @@ mod tests {
         );
 
         let _ = user_store.add_user(test_user.clone()); // We only care about adding the user
-        assert_eq!(test_user, user_store.get_user(&test_user.email).unwrap());
+        assert_eq!(
+            test_user,
+            user_store.get_user(&test_user.email).await.unwrap()
+        );
     }
 
     #[tokio::test]
@@ -123,6 +103,7 @@ mod tests {
             (),
             user_store
                 .validate_user(&test_user.email, &test_user.password)
+                .await
                 .unwrap()
         );
     }
