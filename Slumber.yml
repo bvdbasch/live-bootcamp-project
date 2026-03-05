@@ -17,24 +17,46 @@ profiles:
           "password": "{{ password }}",
           "requires2FA": {{ requires2FA | json_parse() }}
         }
-  signup-2xx:
-    name: signup 2xx
+  signup-201-success:
+    name: signup 201
     data:
       host: localhost:3000
       url: "http://{{ host }}"
       signup_body: |
         {
           "email": "test@example.com",
-          "password": "secret",
+          "password": "notarealpasswordlol",
           "requires2FA": false
         }
-  signup-4xx:
-    name: signup 4xx
+  signup-422-no-mail:
+    name: signup 422 empty email
     data:
       host: localhost:3000
       url: "http://{{ host }}"
       signup_body: |
         {
+          "password": "notarealpasswordlol",
+          "requires2FA": false
+        }
+  signup-400-invalid-mail:
+    name: signup 400 no @ in email
+    data:
+      host: localhost:3000
+      url: "http://{{ host }}"
+      signup_body: |
+        {
+          "email": "test_example.com",
+          "password": "secret",
+          "requires2FA": false
+        }
+  signup-400-password-not-long-enough:
+    name: signup 400 password too short
+    data:
+      host: localhost:3000
+      url: "http://{{ host }}"
+      signup_body: |
+        {
+          "email": "test_example.com",
           "password": "secret",
           "requires2FA": false
         }

@@ -1,11 +1,23 @@
+// Standard libraries
 use std::error::Error;
 
-use axum::{routing::post, serve::Serve, Router};
+// Third party crates
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::post,
+    serve::Serve,
+    Json, Router,
+};
+use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
-pub mod domain;
+// Modules
 pub mod services;
+
+pub mod domain;
+use domain::AuthAPIError;
 
 pub mod app_state;
 use app_state::AppState;
@@ -16,6 +28,11 @@ use crate::routes::*;
 pub struct Application {
     server: Serve<TcpListener, Router, Router>,
     pub address: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: String,
 }
 
 impl Application {
@@ -39,5 +56,21 @@ impl Application {
     pub async fn run(self) -> Result<(), std::io::Error> {
         println!("listening on {}", &self.address);
         self.server.await
+    }
+}
+
+impl IntoResponse for AuthAPIError {
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
+            AuthAPIError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
+            AuthAPIError::UnexpectedError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
+            }
+        };
+        let body = Json(ErrorResponse {
+            error: error_message.to_string(),
+        });
+        (status, body).into_response()
     }
 }
