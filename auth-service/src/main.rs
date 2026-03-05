@@ -5,14 +5,14 @@ use tokio::sync::RwLock;
 
 use auth_service::app_state::{AppState, UserStoreType};
 use auth_service::domain::User;
-use auth_service::services::{HashmapUserStore, UserStoreError};
+use auth_service::services::HashmapUserStore;
 use auth_service::Application;
 
 #[tokio::main]
 async fn main() {
     // Make empty user store hashmap first
     let user_hashmap: HashMap<String, User> = HashMap::new();
-    let mut hashmap_user_store: HashmapUserStore = HashmapUserStore {
+    let hashmap_user_store: HashmapUserStore = HashmapUserStore {
         users: user_hashmap,
     };
 
