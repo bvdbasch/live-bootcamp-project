@@ -11,7 +11,7 @@ use auth_service::Application;
 #[tokio::main]
 async fn main() {
     // Make empty user store hashmap first
-    let user_hashmap: HashMap<String, User> = HashMap::new();
+    let user_hashmap: HashMap<Email, User> = HashMap::new();
     let hashmap_user_store: HashmapUserStore = HashmapUserStore {
         users: user_hashmap,
     };
