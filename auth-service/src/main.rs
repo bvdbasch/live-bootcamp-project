@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use auth_service::app_state::{AppState, UserStoreType};
-use auth_service::domain::User;
+use auth_service::domain::{Email, User};
 use auth_service::services::HashmapUserStore;
 use auth_service::Application;
 

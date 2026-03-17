@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use auth_service::{
     app_state::{AppState, UserStoreType},
-    domain::User,
+    domain::{Email, User},
     services::HashmapUserStore,
     Application,
 };
@@ -16,7 +16,7 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn new() -> Self {
-        let user_hashmap: HashMap<String, User> = HashMap::new();
+        let user_hashmap: HashMap<Email, User> = HashMap::new();
         let hashmap_user_store: HashmapUserStore = HashmapUserStore {
             users: user_hashmap,
         };
