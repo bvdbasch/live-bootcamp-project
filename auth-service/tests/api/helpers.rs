@@ -6,27 +6,24 @@ use auth_service::{
     services::HashmapUserStore,
     Application,
 };
+
+use reqwest::cookie::Jar;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct TestApp {
     pub address: String,
+    pub cookie_jar: Arc<Jar>, // New!
     pub http_client: reqwest::Client,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
         let user_hashmap: HashMap<Email, User> = HashMap::new();
-        let hashmap_user_store: HashmapUserStore = HashmapUserStore {
-            users: user_hashmap,
-        };
+        let hashmap_user_store: HashmapUserStore = HashmapUserStore { users: user_hashmap };
 
-        // Now feed it to the user_store
         let user_store: UserStoreType = Arc::new(RwLock::new(hashmap_user_store));
-
-        // Lastly, create a new app state
         let app_state = AppState::new(user_store);
-
         let app = Application::build(app_state, "0.0.0.0:0")
             .await
             .expect("Failed to build app");
@@ -35,10 +32,15 @@ impl TestApp {
 
         #[allow(clippy::let_underscore_future)]
         let _ = tokio::spawn(app.run());
-        let http_client = reqwest::Client::new();
-        TestApp {
-            address: address,
-            http_client: http_client,
+        let cookie_jar = Arc::new(Jar::default());
+        let http_client = reqwest::Client::builder()
+            .cookie_provider(cookie_jar.clone())
+            .build()
+            .unwrap();
+        Self {
+            address,
+            cookie_jar,
+            http_client,
         }
     }
 
